@@ -50,6 +50,7 @@ module Top	(
 	 wire [6:0] foodY;
 	 wire collision_food;
 	 wire plotFood;
+	 wire plotSnake;
 	wire [2:0] snakeColour;
 	 wire clkA, clkB, clkC, clkD;
 	 clocks cccc(.original(CLOCK_50), .sigOne(clkA), .sigTwo(clkB), .sigThree(clkC), .sigFour(clkD));
@@ -57,7 +58,8 @@ module Top	(
 	 wire realCollision;
 	 assign realCollision= ((snakeX==foodX)&&(snakeY==foodY));
 	 
-	 food fff(.clock(clkB),.X(snakeX), .Y(snakeY), .reset((!resetn)|realCollision), .foodX(foodX), .foodY(foodY), 
+	 food fff(.clock(CLOCK_50), .check_collision(clkC),
+	 .X(snakeX), .Y(snakeY), .reset((!resetn)|realCollision), .foodX(foodX), .foodY(foodY), 
 	 .collision_sig_out(collision_food), .plot(plotFood));
 	 
 	 
@@ -67,17 +69,17 @@ module Top	(
 			y<=foodY;
 			colour<=3'b100;
 		end
-		else
+		else if(plotSnake)
 		begin
 			x<=snakeX;
 			y<=snakeY;
 			colour<=snakeColour;
 		end
-	 
 	 end
 
 	
-	snake_datapath snpath(.clk(clkA), 
+	snake_datapath snpath(.clk(CLOCK_50),
+								.trigger(clkA),
 								.resetn(resetn), 
 								.add_x(add_x), 
 								.add_y(add_y), 
@@ -88,10 +90,10 @@ module Top	(
 								.colour(snakeColour));
 		
 	snake_control scon(
-	.clk(clkA),
+	.clk(CLOCK_50),
    .resetn(resetn),
    .go_right(go_right),
-		.go_left(go_left),
+	.go_left(go_left),
     .add_x(add_x),
     .add_y(add_y),
     .sub_x(sub_x),
@@ -102,7 +104,7 @@ module Top	(
 			.colour(colour),
 			.x(x),
 			.y(y),
-			.plot(writeEn),
+			.plot(plotSnake|plotFood),
 			/* Signals for the DAC to drive the monitor. */
 			.VGA_R(VGA_R),
 			.VGA_G(VGA_G),
@@ -121,20 +123,19 @@ module Top	(
 			
 endmodule
 
-
+//Ensure at least 200 cycles between signals
 module clocks(original, sigOne, sigTwo, sigThree, sigFour);
 	input original;
 	output sigOne, sigTwo, sigThree, sigFour;
-	reg [20:0] count;
-	initial count=21'b011111111111111111111;
-	assign sigOne = (count==21'b000000000000000000000)? 1:0;
-	assign sigTwo = (count==21'b011111111111111110000);
+	reg [19:0] count;
+	initial count=20'b11111111111111111111;
+	assign sigOne = (count==20'b00000000000000000000)? 1:0;
+	assign sigTwo = (count==20'b00000000000100000000)? 1:0;
+	assign sigThree=(count==20'b00000000001000000000)? 1:0;
+	assign sigFour = (count==20'b00000000010000000000)? 1:0;
 	always@(posedge original)
 	begin
-		if(sigOne) count<=21'b011111111111111111111;
+		if(sigOne) count<=20'b11111111111111111111;
 		else count <= count -1;
 	end
-	
-	
-
 endmodule
